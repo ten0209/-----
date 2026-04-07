@@ -278,6 +278,92 @@ body.scope-ads #crosshair::after {
   color: #b7ea71;
 }
 
+.role-switch-ui {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  top: 122px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 160px;
+}
+
+.role-switch-ui__current {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(8, 12, 20, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(225, 235, 255, 0.95);
+  font-size: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.role-switch-ui__button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(22, 36, 58, 0.8);
+  color: #f3f7ff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.role-switch-ui__button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.share-url-ui {
+  position: absolute;
+  z-index: 5;
+  left: 12px;
+  bottom: 12px;
+  min-width: min(440px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 12, 20, 0.62);
+  color: rgba(230, 238, 255, 0.96);
+}
+
+.share-url-ui__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.share-url-ui__row {
+  display: flex;
+  gap: 6px;
+}
+
+.share-url-ui__input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f5f9ff;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.share-url-ui__copy {
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(24, 42, 70, 0.86);
+  color: #f3f7ff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
 #lock-hint {
   position: absolute;
   z-index: 3;

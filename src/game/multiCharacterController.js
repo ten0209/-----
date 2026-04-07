@@ -311,6 +311,7 @@ export class MultiCharacterGame {
     this._deerVegCount = 0;
     this._gameEnded = false;
     this._gameEndResult = null;
+    this._forcedRole = null;
     /** 木以外の射線遮蔽物メッシュ（ハンター射撃用） */
     this._bulletBlockerMeshes = [];
     this._hunterHitBox = new THREE.Box3();
@@ -1303,36 +1304,48 @@ export class MultiCharacterGame {
     const edge = new Set(this._edge);
     this._edge.clear();
 
-    if (edge.has('Digit1')) {
-      this._clearBearDashActiveIfNeeded();
-      this._resetMonkeyJumpGaugeIfLeaving();
-      this.activeIndex = 0;
-      this._aiming = false;
-      this._recoilPitch = 0;
-      this._syncCameraMode();
-    }
-    if (edge.has('Digit2')) {
-      this._clearBearDashActiveIfNeeded();
-      this._resetMonkeyJumpGaugeIfLeaving();
-      this.activeIndex = 1;
-      this._aiming = false;
-      this._recoilPitch = 0;
-      this._syncCameraMode();
-    }
-    if (edge.has('Digit3')) {
-      this._clearBearDashActiveIfNeeded();
-      this._resetMonkeyJumpGaugeIfLeaving();
-      this.activeIndex = 2;
-      this._aiming = false;
-      this._recoilPitch = 0;
-      this._syncCameraMode();
-    }
-    if (edge.has('Digit4')) {
-      this._clearBearDashActiveIfNeeded();
-      this.activeIndex = 3;
-      this._aiming = false;
-      this._recoilPitch = 0;
-      this._syncCameraMode();
+    if (!this._forcedRole) {
+      if (edge.has('Digit1')) {
+        this._clearBearDashActiveIfNeeded();
+        this._resetMonkeyJumpGaugeIfLeaving();
+        this.activeIndex = 0;
+        this._aiming = false;
+        this._recoilPitch = 0;
+        this._syncCameraMode();
+      }
+      if (edge.has('Digit2')) {
+        this._clearBearDashActiveIfNeeded();
+        this._resetMonkeyJumpGaugeIfLeaving();
+        this.activeIndex = 1;
+        this._aiming = false;
+        this._recoilPitch = 0;
+        this._syncCameraMode();
+      }
+      if (edge.has('Digit3')) {
+        this._clearBearDashActiveIfNeeded();
+        this._resetMonkeyJumpGaugeIfLeaving();
+        this.activeIndex = 2;
+        this._aiming = false;
+        this._recoilPitch = 0;
+        this._syncCameraMode();
+      }
+      if (edge.has('Digit4')) {
+        this._clearBearDashActiveIfNeeded();
+        this.activeIndex = 3;
+        this._aiming = false;
+        this._recoilPitch = 0;
+        this._syncCameraMode();
+      }
+    } else {
+      const forcedIndex = ROLES.indexOf(this._forcedRole);
+      if (forcedIndex >= 0 && this.activeIndex !== forcedIndex) {
+        this._clearBearDashActiveIfNeeded();
+        this._resetMonkeyJumpGaugeIfLeaving();
+        this.activeIndex = forcedIndex;
+        this._aiming = false;
+        this._recoilPitch = 0;
+        this._syncCameraMode();
+      }
     }
 
     let ch = this.chars[this.activeIndex];
@@ -1789,6 +1802,22 @@ export class MultiCharacterGame {
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
     this._updateDeerHarvestGauge();
+  }
+
+  setControlledRole(role) {
+    if (typeof role !== 'string' || !ROLES.includes(role)) {
+      this._forcedRole = null;
+      return;
+    }
+    this._forcedRole = role;
+    const idx = ROLES.indexOf(role);
+    if (idx < 0 || idx === this.activeIndex) return;
+    this._clearBearDashActiveIfNeeded();
+    this._resetMonkeyJumpGaugeIfLeaving();
+    this.activeIndex = idx;
+    this._aiming = false;
+    this._recoilPitch = 0;
+    this._syncCameraMode();
   }
 
   _updateHud() {

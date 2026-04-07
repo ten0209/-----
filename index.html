@@ -28,6 +28,19 @@
         <span class="veg-counter__label">野菜</span>
         <span id="veg-counter-value" class="veg-counter__value">0</span>
       </div>
+      <div id="role-switch-ui" class="role-switch-ui">
+        <span id="role-switch-current" class="role-switch-ui__current">操作キャラ: -</span>
+        <button id="role-switch-btn" class="role-switch-ui__button" type="button" disabled>
+          キャラクター変更
+        </button>
+      </div>
+      <div id="share-url-ui" class="share-url-ui">
+        <span class="share-url-ui__label">友達に送るURL</span>
+        <div class="share-url-ui__row">
+          <input id="share-url-input" class="share-url-ui__input" type="text" readonly />
+          <button id="share-url-copy" class="share-url-ui__copy" type="button">コピー</button>
+        </div>
+      </div>
       <div id="bear-dash-gauge" class="bear-dash-gauge" hidden aria-hidden="true">
         <span class="bear-dash-gauge__label">ダッシュ</span>
         <div class="bear-dash-gauge__track">

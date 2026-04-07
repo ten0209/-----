@@ -5,10 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lan": "vite --host",
+    "dev:server": "node server/index.js",
+    "dev:all": "npm run dev:server & npm run dev",
+    "dev:all:lan": "npm run dev:server & npm run dev:lan",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@colyseus/core": "^0.17.39",
+    "@colyseus/schema": "^4.0.19",
+    "@colyseus/ws-transport": "^0.17.11",
+    "colyseus.js": "^0.16.22",
+    "express": "^5.2.1",
     "three": "^0.170.0"
   },
   "devDependencies": {

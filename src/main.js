@@ -2,6 +2,7 @@ import { initScene } from './game/scene.js';
 import { GameLoop } from './game/GameLoop.js';
 import { MultiCharacterGame } from './game/multiCharacterController.js';
 import { createAmbientBgm } from './game/ambientBgm.js';
+import { bootstrapMultiplayer } from './net/multiplayerClient.js';
 
 const app = document.getElementById('app');
 const ambientBgm = createAmbientBgm();
@@ -33,11 +34,76 @@ const canvas = document.getElementById('game-canvas');
 const resultOverlayEl = document.getElementById('result-overlay');
 const resultOverlayTextEl = document.getElementById('result-overlay-text');
 const resultBackLobbyBtnEl = document.getElementById('result-back-lobby');
+const roleSwitchBtnEl = document.getElementById('role-switch-btn');
+const roleSwitchCurrentEl = document.getElementById('role-switch-current');
+const shareUrlInputEl = document.getElementById('share-url-input');
+const shareUrlCopyBtnEl = document.getElementById('share-url-copy');
 
 const { scene, camera, renderer, gameContext } = initScene(canvas);
 
 const game = new MultiCharacterGame(scene, camera, canvas, gameContext);
 game.connect();
+
+function resolvePublicJoinUrl() {
+  const configured = import.meta.env.VITE_PUBLIC_JOIN_URL;
+  if (
+    typeof configured === 'string' &&
+    configured.trim() !== '' &&
+    !configured.includes('YOUR_HOST_IP')
+  ) {
+    return configured;
+  }
+  return window.location.href;
+}
+
+const shareUrl = resolvePublicJoinUrl();
+if (shareUrlInputEl) shareUrlInputEl.value = shareUrl;
+if (shareUrlCopyBtnEl) {
+  shareUrlCopyBtnEl.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      shareUrlCopyBtnEl.textContent = 'コピー済み';
+      setTimeout(() => {
+        shareUrlCopyBtnEl.textContent = 'コピー';
+      }, 1200);
+    } catch {
+      if (shareUrlInputEl) {
+        shareUrlInputEl.focus();
+        shareUrlInputEl.select();
+      }
+    }
+  });
+}
+
+/* マルチプレイ土台：サーバーが起動していれば自動で接続 */
+void bootstrapMultiplayer({
+  onStateChange: (state) => {
+    const count = Number.isFinite(state?.players?.size)
+      ? state.players.size
+      : state?.players
+        ? Object.keys(state.players).length
+        : 0;
+    if (count > 0) {
+      // 最低限の導入段階なのでログのみ。次段階でロビーUIへ反映する。
+      console.log('[multiplayer] players:', count);
+    }
+  },
+  onSelfStateChange: (self) => {
+    if (!self?.role) return;
+    game.setControlledRole(self.role);
+    if (roleSwitchCurrentEl) roleSwitchCurrentEl.textContent = `操作キャラ: ${self.role}`;
+  },
+})
+  .then((mp) => {
+    if (!roleSwitchBtnEl) return;
+    roleSwitchBtnEl.disabled = false;
+    roleSwitchBtnEl.addEventListener('click', () => {
+      mp.cycleRole();
+    });
+  })
+  .catch((err) => {
+  console.info('[multiplayer] not connected yet:', err?.message ?? err);
+  });
 
 function showResultOverlay(localResult, winnerTeam) {
   if (!resultOverlayEl || !resultOverlayTextEl) return;
