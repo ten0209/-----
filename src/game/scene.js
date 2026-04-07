@@ -44,6 +44,7 @@ export function initScene(canvas) {
       colliders: stage.colliders,
       halfBounds: stage.halfBounds,
       treeTrunks: stage.treeTrunks,
+      vegetables: stage.vegetables,
     },
   };
 }

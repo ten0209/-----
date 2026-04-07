@@ -114,6 +114,9 @@ const DEATH_DISSOLVE_MS = 1050;
 const DEATH_SMOKE_EMIT_INTERVAL_MS = 65;
 const DEATH_SMOKE_LIFE_MS = 720;
 const BEAR_TOUCH_ATTACK_COOLDOWN_MS = 700;
+const DEER_VEG_HARVEST_TOUCH_MS = 3000;
+const DEER_VEG_HARVEST_TOUCH_MARGIN = 0.26;
+const ANIMALS_WIN_VEG_COUNT = 4;
 
 const DEFS = {
   hunter: {
@@ -185,7 +188,7 @@ export class MultiCharacterGame {
    * @param {THREE.Scene} scene
    * @param {THREE.PerspectiveCamera} camera
    * @param {HTMLCanvasElement} canvas
-   * @param {{ colliders: unknown[], halfBounds: number, treeTrunks: { x: number, z: number, r: number, topY: number }[] }} ctx
+   * @param {{ colliders: unknown[], halfBounds: number, treeTrunks: { x: number, z: number, r: number, topY: number }[], vegetables?: { x:number, z:number, r:number, mesh:THREE.Mesh, collider:any, harvested:boolean }[] }} ctx
    */
   constructor(scene, camera, canvas, ctx) {
     this.scene = scene;
@@ -194,6 +197,7 @@ export class MultiCharacterGame {
     this.colliders = ctx.colliders;
     this.halfBounds = ctx.halfBounds;
     this.treeTrunks = ctx.treeTrunks ?? [];
+    this.vegetables = ctx.vegetables ?? [];
 
     this.keys = new Set();
     this._edge = new Set();
@@ -269,6 +273,8 @@ export class MultiCharacterGame {
     this._bearDashGaugeFillEl = this._bearDashGaugeEl?.querySelector('.bear-dash-gauge__fill');
     this._monkeyJumpGaugeEl = document.getElementById('monkey-jump-gauge');
     this._monkeyJumpGaugeFillEl = this._monkeyJumpGaugeEl?.querySelector('.monkey-jump-gauge__fill');
+    this._deerHarvestGaugeEl = document.getElementById('deer-harvest-gauge');
+    this._deerHarvestGaugeFillEl = this._deerHarvestGaugeEl?.querySelector('.deer-harvest-gauge__fill');
     this._bearHpEl = document.getElementById('bear-hp');
     this._bearHpHeartsEl = document.getElementById('bear-hp-hearts');
     /** 直前フレームで Space が押されていたか（離した瞬間検出用） */
@@ -296,6 +302,11 @@ export class MultiCharacterGame {
     /** @type {{ mesh: THREE.Mesh, bornAt: number, lifeMs: number, vel: THREE.Vector3, spin: number }[]} */
     this._bearAttackFx = [];
     this._lastBearTouchAttackAt = -Infinity;
+    this._deerVegTouchTarget = null;
+    this._deerVegTouchMs = 0;
+    this._deerVegCount = 0;
+    this._gameEnded = false;
+    this._gameEndResult = null;
     /** 木以外の射線遮蔽物メッシュ（ハンター射撃用） */
     this._bulletBlockerMeshes = [];
     this._hunterHitBox = new THREE.Box3();
@@ -529,6 +540,75 @@ export class MultiCharacterGame {
     hunter.mesh.getWorldPosition(this._tmpDeathSmokeVec);
     this._spawnBearAttackEffect(this._tmpDeathSmokeVec);
     console.log(`[接触攻撃] クマ -> ハンター (${hunter.hp}/${hunter.hpMax})`);
+  }
+
+  _updateDeerVegetableHarvest(dt) {
+    if (!this.vegetables || this.vegetables.length === 0) return;
+    const deer = this.chars.find((c) => c.role === 'deer');
+    if (!deer || (deer.hp ?? 1) <= 0) {
+      this._deerVegTouchTarget = null;
+      this._deerVegTouchMs = 0;
+      return;
+    }
+    const deerR = this._getCollisionRadius(deer);
+    let touched = null;
+    for (const v of this.vegetables) {
+      if (!v || v.harvested) continue;
+      const dx = deer.feet.x - v.x;
+      const dz = deer.feet.z - v.z;
+      const rr = deerR + (v.r ?? 0.25) + DEER_VEG_HARVEST_TOUCH_MARGIN;
+      if (dx * dx + dz * dz <= rr * rr) {
+        touched = v;
+        break;
+      }
+    }
+    if (!touched) {
+      this._deerVegTouchTarget = null;
+      this._deerVegTouchMs = 0;
+      return;
+    }
+    if (this._deerVegTouchTarget !== touched) {
+      this._deerVegTouchTarget = touched;
+      this._deerVegTouchMs = 0;
+      return;
+    }
+    this._deerVegTouchMs += dt * 1000;
+    if (this._deerVegTouchMs < DEER_VEG_HARVEST_TOUCH_MS) return;
+    touched.harvested = true;
+    if (touched.mesh) {
+      const parent = touched.mesh.parent ?? this.scene;
+      parent.remove(touched.mesh);
+      touched.mesh.geometry?.dispose?.();
+      if (Array.isArray(touched.mesh.material)) {
+        for (const m of touched.mesh.material) m?.dispose?.();
+      } else {
+        touched.mesh.material?.dispose?.();
+      }
+    }
+    if (touched.collider) {
+      const i = this.colliders.indexOf(touched.collider);
+      if (i >= 0) this.colliders.splice(i, 1);
+    }
+    this._deerVegCount += 1;
+    this._deerVegTouchTarget = null;
+    this._deerVegTouchMs = 0;
+    console.log(`[収穫] シカの野菜カウント: ${this._deerVegCount}`);
+  }
+
+  _updateDeerHarvestGauge() {
+    const root = this._deerHarvestGaugeEl;
+    const fill = this._deerHarvestGaugeFillEl;
+    if (!root || !fill) return;
+    const ch = this.chars[this.activeIndex];
+    const visible = ch?.role === 'deer' && !!this._deerVegTouchTarget;
+    root.hidden = !visible;
+    root.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (!visible) {
+      fill.style.width = '0%';
+      return;
+    }
+    const ratio = Math.max(0, Math.min(1, this._deerVegTouchMs / DEER_VEG_HARVEST_TOUCH_MS));
+    fill.style.width = `${ratio * 100}%`;
   }
 
   _startCharacterDeath(ch, now = performance.now()) {
@@ -1160,6 +1240,50 @@ export class MultiCharacterGame {
     heartsEl.textContent = '❤'.repeat(hp) + '♡'.repeat(Math.max(0, (bear.hpMax ?? 3) - hp));
   }
 
+  _teamOfRole(role) {
+    return role === 'hunter' ? 'hunter' : 'animals';
+  }
+
+  _currentHp(ch) {
+    const hp = Number(ch?.hp);
+    if (Number.isFinite(hp)) return hp;
+    const hpMax = Number(ch?.hpMax);
+    return Number.isFinite(hpMax) ? hpMax : 1;
+  }
+
+  _checkGameEnd() {
+    if (this._gameEnded) return this._gameEndResult;
+    const hunter = this.chars.find((c) => c.role === 'hunter');
+    const bear = this.chars.find((c) => c.role === 'bear');
+    const deer = this.chars.find((c) => c.role === 'deer');
+    if (!hunter || !bear || !deer) return null;
+
+    let winnerTeam = null;
+    let reason = '';
+    const hunterHp = this._currentHp(hunter);
+    const bearHp = this._currentHp(bear);
+    const deerHp = this._currentHp(deer);
+    if (bearHp <= 0 && deerHp <= 0) {
+      winnerTeam = 'hunter';
+      reason = 'クマとシカのHPが0';
+    } else if (hunterHp <= 0) {
+      winnerTeam = 'animals';
+      reason = 'ハンターのHPが0';
+    } else if (this._deerVegCount >= ANIMALS_WIN_VEG_COUNT) {
+      winnerTeam = 'animals';
+      reason = `野菜カウントが${ANIMALS_WIN_VEG_COUNT}`;
+    }
+    if (!winnerTeam) return null;
+
+    this._gameEnded = true;
+    this._aiming = false;
+    const localRole = this.chars[this.activeIndex]?.role ?? 'hunter';
+    const localTeam = this._teamOfRole(localRole);
+    const localResult = localTeam === winnerTeam ? 'victory' : 'defeat';
+    this._gameEndResult = { ended: true, winnerTeam, localResult, reason };
+    return this._gameEndResult;
+  }
+
   update(dt) {
     const edge = new Set(this._edge);
     this._edge.clear();
@@ -1588,16 +1712,23 @@ export class MultiCharacterGame {
     this._updateBearHpHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
+    this._updateDeerHarvestGauge();
 
     this._updateMonkeyRocks(dt);
+    this._updateDeerVegetableHarvest(dt);
     this._tryBearTouchAttack();
     this._updateHunterPoopHitHighlight();
     this._updateDamageFlashEffects();
     this._updateCharacterDeaths();
     this._updateDeathSmoke();
     this._updateBearAttackFx();
+    this._updateDeerHarvestGauge();
+
+    const end = this._checkGameEnd();
+    if (end) return end;
 
     this._prevSpaceHeld = this.keys.has('Space');
+    return null;
   }
 
   _syncCameraMode() {
@@ -1620,6 +1751,7 @@ export class MultiCharacterGame {
     this._updateBearHpHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
+    this._updateDeerHarvestGauge();
   }
 
   _updateHud() {
@@ -1644,6 +1776,7 @@ export class MultiCharacterGame {
               '構え中：ゆっくり移動可・ジャンプ不可・エイム感度低下',
             ]
           : []),
+        ...(ch.role === 'deer' ? [`野菜カウント：${this._deerVegCount}`] : []),
         fullscreenHudLine(),
       ].filter(Boolean);
       elText.textContent = lines.join('\n');

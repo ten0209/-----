@@ -36,6 +36,18 @@
           <div class="monkey-jump-gauge__fill"></div>
         </div>
       </div>
+      <div id="deer-harvest-gauge" class="deer-harvest-gauge" hidden aria-hidden="true">
+        <span class="deer-harvest-gauge__label">野菜を食べる</span>
+        <div class="deer-harvest-gauge__track">
+          <div class="deer-harvest-gauge__fill"></div>
+        </div>
+      </div>
+      <div id="result-overlay" class="result-overlay" hidden aria-live="assertive">
+        <p id="result-overlay-text" class="result-overlay__text">勝利</p>
+        <button id="result-back-lobby" class="result-overlay__button" type="button">
+          ロビーに戻る
+        </button>
+      </div>
       <div id="lock-hint">クリックしてマウスロック</div>
     </div>
     <script type="module" src="/src/main.js"></script>

@@ -30,11 +30,40 @@ async function toggleFullscreen() {
 }
 
 const canvas = document.getElementById('game-canvas');
+const resultOverlayEl = document.getElementById('result-overlay');
+const resultOverlayTextEl = document.getElementById('result-overlay-text');
+const resultBackLobbyBtnEl = document.getElementById('result-back-lobby');
 
 const { scene, camera, renderer, gameContext } = initScene(canvas);
 
 const game = new MultiCharacterGame(scene, camera, canvas, gameContext);
 game.connect();
+
+function showResultOverlay(localResult, winnerTeam) {
+  if (!resultOverlayEl || !resultOverlayTextEl) return;
+  resultOverlayEl.hidden = false;
+  resultOverlayEl.classList.remove('result-overlay--victory', 'result-overlay--defeat');
+  if (localResult === 'victory') {
+    resultOverlayEl.classList.add('result-overlay--victory');
+    resultOverlayTextEl.textContent = '勝利';
+  } else {
+    resultOverlayEl.classList.add('result-overlay--defeat');
+    resultOverlayTextEl.textContent = '敗北';
+  }
+  resultOverlayTextEl.setAttribute('data-winner-team', winnerTeam);
+}
+
+function releaseMouseLockLikeEsc() {
+  if (document.pointerLockElement && document.exitPointerLock) {
+    document.exitPointerLock();
+  }
+}
+
+if (resultBackLobbyBtnEl) {
+  resultBackLobbyBtnEl.addEventListener('click', () => {
+    window.location.reload();
+  });
+}
 
 if (app) {
   window.addEventListener('keydown', (e) => {
@@ -48,11 +77,18 @@ if (app) {
   document.addEventListener('webkitfullscreenchange', onFsChange);
 }
 
+let ended = false;
 const loop = new GameLoop({
   scene,
   camera,
   renderer,
-  onUpdate: (dt) => game.update(dt),
+  onUpdate: (dt) => {
+    const result = game.update(dt);
+    if (ended || !result?.ended) return;
+    ended = true;
+    releaseMouseLockLikeEsc();
+    showResultOverlay(result.localResult, result.winnerTeam);
+  },
 });
 
 loop.start();

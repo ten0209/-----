@@ -14,6 +14,7 @@ const ROCK_COUNT = 95;
 const FALLEN_LOG_COUNT = 55;
 const STUMP_COUNT = 85;
 const BUSH_COUNT = 75;
+const FARM_COUNT = 5;
 
 function mulberry32(seed) {
   return function () {
@@ -138,6 +139,62 @@ function createBush(rng) {
   return { group: g, colliderR: 0.42 + rng() * 0.18 };
 }
 
+function createFarmPlot(rng) {
+  const g = new THREE.Group();
+  const size = 2.8 + rng() * 1.6;
+  const w = size;
+  const d = size;
+  const borderH = 0.2;
+  const soilMat = new THREE.MeshStandardMaterial({
+    color: 0x6a4c2b,
+    roughness: 0.95,
+    metalness: 0,
+  });
+  const woodMat = new THREE.MeshStandardMaterial({
+    color: 0x5a3c24,
+    roughness: 0.92,
+    metalness: 0.02,
+  });
+  const vegMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(0.28 + rng() * 0.04, 0.7, 0.44),
+    roughness: 0.78,
+    metalness: 0.02,
+    flatShading: true,
+  });
+
+  const soil = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.08, d - 0.2), soilMat);
+  soil.position.y = 0.05;
+  soil.receiveShadow = true;
+  g.add(soil);
+
+  const borderNorth = new THREE.Mesh(new THREE.BoxGeometry(w, borderH, 0.16), woodMat);
+  borderNorth.position.set(0, borderH * 0.5, d * 0.5);
+  g.add(borderNorth);
+  const borderSouth = borderNorth.clone();
+  borderSouth.position.z = -d * 0.5;
+  g.add(borderSouth);
+  const borderEast = new THREE.Mesh(new THREE.BoxGeometry(0.16, borderH, d), woodMat);
+  borderEast.position.set(w * 0.5, borderH * 0.5, 0);
+  g.add(borderEast);
+  const borderWest = borderEast.clone();
+  borderWest.position.x = -w * 0.5;
+  g.add(borderWest);
+
+  const centerVegR = 0.24;
+  const centerVeg = new THREE.Mesh(new THREE.SphereGeometry(centerVegR, 10, 8), vegMat);
+  centerVeg.position.set(0, 0.2, 0);
+  centerVeg.castShadow = true;
+  g.add(centerVeg);
+
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+  });
+
+  return { group: g, centerVegR, plotRadius: size * 0.85 };
+}
+
 function placeInRing(rng, clearSq, margin) {
   const m = margin ?? 0;
   const span = GROUND_SIZE - m * 2;
@@ -170,11 +227,12 @@ function placeInRingAvoid(rng, clearSq, margin, zones) {
  * 森のステージをシーンに追加し、衝突用データを返す
  * @param {THREE.Scene} scene
  * @param {number} [seed=1]
- * @returns {{ colliders: Array<{ x: number, z: number, r: number } | { kind: 'box', cx: number, cz: number, halfW: number, halfD: number, rot: number }>, halfBounds: number }}
+ * @returns {{ colliders: Array<{ x: number, z: number, r: number } | { kind: 'box', cx: number, cz: number, halfW: number, halfD: number, rot: number }>, halfBounds: number, vegetables: Array<{ x:number, z:number, r:number, mesh: THREE.Mesh, collider: { x:number, z:number, r:number, h:number }, harvested:boolean }> }}
  */
 export function buildForestStage(scene, seed = 1) {
   const rng = mulberry32(seed);
   const colliders = [];
+  const vegetables = [];
   const half = GROUND_SIZE / 2;
   const clearSq = CLEAR_RADIUS * CLEAR_RADIUS;
   const clearOuter = (CLEAR_RADIUS + 3) ** 2;
@@ -256,6 +314,33 @@ export function buildForestStage(scene, seed = 1) {
     });
   }
 
+  for (let i = 0; i < FARM_COUNT; i++) {
+    const p = placeInRingAvoid(rng, CLEAR_BUILDING_SQ, 24, buildingClearances);
+    if (!p) continue;
+    const { x, z } = p;
+    const { group, centerVegR, plotRadius } = createFarmPlot(rng);
+    const rot = rng() * Math.PI * 2;
+    group.position.set(x, 0, z);
+    group.rotation.y = rot;
+    scene.add(group);
+    /* 畑は通り抜け可。中央の野菜のみ通り抜け不可 */
+    const vegCollider = { x, z, r: centerVegR + 0.06, h: 0.62 };
+    colliders.push(vegCollider);
+    vegetables.push({
+      x,
+      z,
+      r: centerVegR + 0.06,
+      mesh: group.children[group.children.length - 1],
+      collider: vegCollider,
+      harvested: false,
+    });
+    buildingClearances.push({
+      cx: x,
+      cz: z,
+      r: plotRadius + 1.2,
+    });
+  }
+
   for (let i = 0; i < TREE_COUNT; i++) {
     const p = placeInRingAvoid(rng, clearSq, 10, buildingClearances);
     if (!p) continue;
@@ -329,5 +414,5 @@ export function buildForestStage(scene, seed = 1) {
     colliders.push({ x, z, r: colliderR, h: 0.95 });
   }
 
-  return { colliders, halfBounds: half - 1.5, treeTrunks };
+  return { colliders, halfBounds: half - 1.5, treeTrunks, vegetables };
 }
