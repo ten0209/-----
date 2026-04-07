@@ -1,0 +1,299 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a12;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.pointer-locked #game-canvas {
+  cursor: none;
+}
+
+/* 構え（ADS）時：接眼レンズ円を投影した radial-gradient を JS が毎フレーム設定 */
+#scope-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+body.scope-ads #scope-vignette {
+  opacity: 1;
+}
+
+#scope-mud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.08s linear;
+  /* 非ADS時：画面端だけ茶色く汚れて見える */
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(94, 58, 24, 0) 0,
+      rgba(94, 58, 24, 0) 55%,
+      rgba(94, 58, 24, 0.78) 78%,
+      rgba(78, 48, 20, 0.92) 100%
+    );
+  background-repeat: no-repeat;
+}
+
+body.scope-muddy #scope-mud {
+  opacity: 1;
+}
+
+/* ADS時：スコープ中央に強い泥マスク */
+body.scope-ads.scope-muddy #scope-mud {
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      rgb(78, 48, 20) 0,
+      rgb(94, 58, 24) 20vmin,
+      rgba(94, 58, 24, 0) 22.5vmin
+    );
+}
+
+#crosshair {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.pointer-locked.mode-fp #crosshair,
+.pointer-locked.mode-monkey #crosshair {
+  opacity: 1;
+}
+
+/* 射撃命中：照準中央に動物がいたときのフィードバック */
+.hit-feedback {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  width: 100px;
+  height: 100px;
+  margin: -50px 0 0 -50px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.hit-feedback--active {
+  animation: hitFeedbackPop 0.48s ease-out forwards;
+}
+
+@keyframes hitFeedbackPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+.hit-feedback__ring {
+  position: absolute;
+  inset: 0;
+  border: 3px solid rgba(255, 92, 64, 0.95);
+  border-radius: 50%;
+  box-shadow:
+    0 0 22px rgba(255, 130, 70, 0.75),
+    0 0 42px rgba(255, 80, 40, 0.35),
+    inset 0 0 18px rgba(255, 220, 160, 0.45);
+}
+
+.hit-feedback__core {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #ffffff 0%,
+    rgba(255, 210, 120, 0.95) 35%,
+    rgba(255, 100, 50, 0.5) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+}
+
+#hud {
+  position: absolute;
+  z-index: 3;
+  left: 12px;
+  top: 12px;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  max-width: min(360px, 90vw);
+}
+
+#hud-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+#hud-text {
+  margin: 0;
+  line-height: 1.45;
+  opacity: 0.92;
+  white-space: pre-line;
+}
+
+#lock-hint {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.pointer-locked #lock-hint {
+  opacity: 0;
+}
+
+/* クマ操作時：残りダッシュ可能時間（燃料） */
+.bear-dash-gauge {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 10%;
+  transform: translateX(-50%);
+  width: min(320px, 72vw);
+  pointer-events: none;
+  text-align: center;
+}
+
+.bear-dash-gauge__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 248, 230, 0.88);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.bear-dash-gauge__track {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(12, 14, 22, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.bear-dash-gauge__fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    #3d8f6a 0%,
+    #6abf8f 45%,
+    #c9e86a 78%,
+    #e8c44a 100%
+  );
+  box-shadow: 0 0 10px rgba(110, 200, 140, 0.35);
+  transition: width 0.06s ease-out;
+}
+
+/* サル操作時：ジャンプゲージ（0〜1、初期は空） */
+.monkey-jump-gauge {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 10%;
+  transform: translateX(-50%);
+  width: min(320px, 72vw);
+  pointer-events: none;
+  text-align: center;
+}
+
+.monkey-jump-gauge__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 240, 210, 0.9);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.monkey-jump-gauge__track {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(12, 14, 22, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.monkey-jump-gauge__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    #8b6914 0%,
+    #c9a227 40%,
+    #e8c060 75%,
+    #f0e0a8 100%
+  );
+  box-shadow: 0 0 10px rgba(220, 180, 80, 0.35);
+  transition: width 0.08s ease-out;
+}

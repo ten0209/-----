@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>クマ vs ハンター — キャラ切替デモ</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas"></canvas>
+      <div id="scope-vignette" aria-hidden="true"></div>
+      <div id="scope-mud" aria-hidden="true"></div>
+      <div id="crosshair" aria-hidden="true"></div>
+      <div id="hit-feedback" class="hit-feedback" aria-hidden="true">
+        <span class="hit-feedback__ring" aria-hidden="true"></span>
+        <span class="hit-feedback__core" aria-hidden="true"></span>
+      </div>
+      <div id="hud">
+        <p id="hud-title">キャラクター</p>
+        <p id="hud-text"></p>
+      </div>
+      <div id="bear-dash-gauge" class="bear-dash-gauge" hidden aria-hidden="true">
+        <span class="bear-dash-gauge__label">ダッシュ</span>
+        <div class="bear-dash-gauge__track">
+          <div class="bear-dash-gauge__fill"></div>
+        </div>
+      </div>
+      <div id="monkey-jump-gauge" class="monkey-jump-gauge" hidden aria-hidden="true">
+        <span class="monkey-jump-gauge__label">ジャンプ</span>
+        <div class="monkey-jump-gauge__track">
+          <div class="monkey-jump-gauge__fill"></div>
+        </div>
+      </div>
+      <div id="lock-hint">クリックしてマウスロック</div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
