@@ -15,6 +15,8 @@ const FALLEN_LOG_COUNT = 55;
 const STUMP_COUNT = 85;
 const BUSH_COUNT = 75;
 const FARM_COUNT = 5;
+const TREE_SIZE_MUL = 1.28;
+const ROCK_SIZE_MUL = 1.25;
 
 function mulberry32(seed) {
   return function () {
@@ -27,7 +29,7 @@ function mulberry32(seed) {
 
 function createTree(rng) {
   const g = new THREE.Group();
-  const scale = 0.72 + rng() * 0.62;
+  const scale = (0.72 + rng() * 0.62) * TREE_SIZE_MUL;
 
   const trunkMat = new THREE.MeshStandardMaterial({
     color: 0x4a3528,
@@ -68,7 +70,7 @@ function createTree(rng) {
 }
 
 function createRock(rng) {
-  const baseR = 0.35 + rng() * 0.55;
+  const baseR = (0.35 + rng() * 0.55) * ROCK_SIZE_MUL;
   const geo = new THREE.DodecahedronGeometry(baseR, 0);
   const mat = new THREE.MeshStandardMaterial({
     color: new THREE.Color().setHSL(0, 0, 0.38 + rng() * 0.12),
@@ -78,7 +80,7 @@ function createRock(rng) {
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = true;
   m.receiveShadow = true;
-  const s = 0.75 + rng() * 0.95;
+  const s = (0.75 + rng() * 0.95) * ROCK_SIZE_MUL;
   m.scale.setScalar(s);
   m.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
   return { mesh: m, colliderR: baseR * s * 0.92 };
