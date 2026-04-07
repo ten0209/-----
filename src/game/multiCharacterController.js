@@ -94,6 +94,7 @@ const MONKEY_ROCK_RADIUS = 0.11 * 1.2;
 /** 投擲後、再び投げられるまでの待ち時間（ms） */
 const MONKEY_ROCK_THROW_COOLDOWN_MS = 3000;
 const MONKEY_ROCK_MAX = 36;
+const DEER_JUMP_GRAVITY_MUL = 1.35;
 /** うんちがハンターに当たったときの稜線ハイライト時間（ms） */
 const HUNTER_POOP_HIT_HIGHLIGHT_MS = 3000;
 /** サルの実移動当たり判定（見た目優先でかなり小さく固定） */
@@ -132,7 +133,7 @@ const DEFS = {
     speed: 12,
     radius: 0.38,
     eyeHeight: 0,
-    jumpForce: 14,
+    jumpForce: 16.2,
     camDist: 5.9,
     camHeight: 2.35,
     aimHeight: 1.05,
@@ -1116,7 +1117,8 @@ export class MultiCharacterGame {
       }
 
       if (!ch.climbing) {
-        ch.velY -= GRAVITY * dt;
+        const gravityMul = ch.role === 'deer' ? DEER_JUMP_GRAVITY_MUL : 1;
+        ch.velY -= GRAVITY * gravityMul * dt;
         feet.y += ch.velY * dt;
         if (feet.y < 0) {
           feet.y = 0;
