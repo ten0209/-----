@@ -97,6 +97,8 @@ const MONKEY_ROCK_MAX = 36;
 const DEER_JUMP_GRAVITY_MUL = 1.35;
 /** うんちがハンターに当たったときの稜線ハイライト時間（ms） */
 const HUNTER_POOP_HIT_HIGHLIGHT_MS = 3000;
+/** 被弾時に赤く光る時間（ms） */
+const DAMAGE_FLASH_MS = 240;
 /** サルの実移動当たり判定（見た目優先でかなり小さく固定） */
 const MONKEY_COLLISION_RADIUS_FIXED = 0.22;
 /** サルの下半身カプセル（feet 基準） */
@@ -337,6 +339,51 @@ export class MultiCharacterGame {
     setHunterPoopHitHighlight(hunterMesh, active);
   }
 
+  _setCharacterDamageFlash(ch, active) {
+    if (!ch?.mesh) return;
+    ch.mesh.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (m.isLineBasicMaterial) continue;
+        if (m.emissive && typeof m.emissive.getHex === 'function') {
+          if (m.userData._dmgOrigEmissive === undefined) {
+            m.userData._dmgOrigEmissive = m.emissive.getHex();
+            m.userData._dmgOrigEmissiveIntensity = m.emissiveIntensity ?? 1;
+          }
+          if (active) {
+            m.emissive.setHex(0xff2a2a);
+            m.emissiveIntensity = 0.95;
+          } else {
+            m.emissive.setHex(m.userData._dmgOrigEmissive);
+            m.emissiveIntensity = m.userData._dmgOrigEmissiveIntensity ?? 1;
+          }
+          continue;
+        }
+        if (m.color && typeof m.color.getHex === 'function') {
+          if (m.userData._dmgOrigColor === undefined) {
+            m.userData._dmgOrigColor = m.color.getHex();
+          }
+          m.color.setHex(active ? 0xff4a4a : m.userData._dmgOrigColor);
+        }
+      }
+    });
+  }
+
+  _triggerCharacterDamageFlash(ch) {
+    if (!ch) return;
+    ch.damageFlashUntil = performance.now() + DAMAGE_FLASH_MS;
+  }
+
+  _updateDamageFlashEffects(now = performance.now()) {
+    for (const c of this.chars) {
+      const active = now < (c.damageFlashUntil ?? 0);
+      if (active === !!c._damageFlashActive) continue;
+      c._damageFlashActive = active;
+      this._setCharacterDamageFlash(c, active);
+    }
+  }
+
   _isHunterPoopDebuffed(now = performance.now()) {
     return now < this._hunterPoopHighlightUntil;
   }
@@ -446,6 +493,8 @@ export class MultiCharacterGame {
       climbing: null,
       hpMax: ROLE_HP[role] ?? 1,
       hp: ROLE_HP[role] ?? 1,
+      damageFlashUntil: 0,
+      _damageFlashActive: false,
     };
     if (role === 'bear') {
       ch.bearDashFuel = BEAR_DASH_MAX_DURATION;
@@ -689,6 +738,7 @@ export class MultiCharacterGame {
     hitPrey.hp = Math.max(0, (hitPrey.hp ?? 1) - 1);
     console.log(`[射撃命中] ${hitPrey.def.label}`);
     console.log(`[HP] ${hitPrey.def.label}: ${hitPrey.hp}/${hitPrey.hpMax}`);
+    this._triggerCharacterDamageFlash(hitPrey);
     this._triggerHitFeedback();
     return;
     }
@@ -1348,6 +1398,7 @@ export class MultiCharacterGame {
 
     this._updateMonkeyRocks(dt);
     this._updateHunterPoopHitHighlight();
+    this._updateDamageFlashEffects();
 
     this._prevSpaceHeld = this.keys.has('Space');
   }
