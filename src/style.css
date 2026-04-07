@@ -222,6 +222,34 @@ body.scope-ads #crosshair::after {
   white-space: pre-line;
 }
 
+.bear-hp {
+  position: absolute;
+  z-index: 4;
+  right: 12px;
+  top: 12px;
+  min-width: 120px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 12, 20, 0.58);
+  color: rgba(255, 240, 240, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.bear-hp__label {
+  margin-right: 8px;
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.bear-hp__hearts {
+  letter-spacing: 0.1em;
+  font-size: 19px;
+  font-weight: 700;
+  color: #ff5a66;
+}
+
 #lock-hint {
   position: absolute;
   z-index: 3;

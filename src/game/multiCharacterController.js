@@ -102,6 +102,12 @@ const MONKEY_COLLISION_RADIUS_FIXED = 0.22;
 /** サルの下半身カプセル（feet 基準） */
 const MONKEY_COLLIDER_BOTTOM_OFFSET = 0.0;
 const MONKEY_COLLIDER_TOP_OFFSET = 1.05;
+const ROLE_HP = {
+  hunter: 1,
+  bear: 3,
+  deer: 1,
+  monkey: 1,
+};
 
 const DEFS = {
   hunter: {
@@ -257,6 +263,8 @@ export class MultiCharacterGame {
     this._bearDashGaugeFillEl = this._bearDashGaugeEl?.querySelector('.bear-dash-gauge__fill');
     this._monkeyJumpGaugeEl = document.getElementById('monkey-jump-gauge');
     this._monkeyJumpGaugeFillEl = this._monkeyJumpGaugeEl?.querySelector('.monkey-jump-gauge__fill');
+    this._bearHpEl = document.getElementById('bear-hp');
+    this._bearHpHeartsEl = document.getElementById('bear-hp-hearts');
     /** 直前フレームで Space が押されていたか（離した瞬間検出用） */
     this._prevSpaceHeld = false;
     /** キャンバス左クリック 1 回分（登木開始用、update で消費） */
@@ -436,6 +444,8 @@ export class MultiCharacterGame {
       velY: 0,
       yaw: 0,
       climbing: null,
+      hpMax: ROLE_HP[role] ?? 1,
+      hp: ROLE_HP[role] ?? 1,
     };
     if (role === 'bear') {
       ch.bearDashFuel = BEAR_DASH_MAX_DURATION;
@@ -675,7 +685,10 @@ export class MultiCharacterGame {
     const blockerDist = blockerHits.length > 0 ? blockerHits[0].distance : Infinity;
     if (hitPreyDist + 1e-4 >= blockerDist) return;
 
+    if ((hitPrey.hp ?? 1) <= 0) return;
+    hitPrey.hp = Math.max(0, (hitPrey.hp ?? 1) - 1);
     console.log(`[射撃命中] ${hitPrey.def.label}`);
+    console.log(`[HP] ${hitPrey.def.label}: ${hitPrey.hp}/${hitPrey.hpMax}`);
     this._triggerHitFeedback();
     return;
     }
@@ -896,6 +909,20 @@ export class MultiCharacterGame {
     if (!monkey) return;
     const ratio = Math.max(0, Math.min(1, monkey.monkeyJumpGauge ?? 0));
     fill.style.width = `${ratio * 100}%`;
+  }
+
+  _updateBearHpHud() {
+    const root = this._bearHpEl;
+    const heartsEl = this._bearHpHeartsEl;
+    if (!root || !heartsEl) return;
+    const playingBear = this.chars[this.activeIndex]?.role === 'bear';
+    root.hidden = !playingBear;
+    root.setAttribute('aria-hidden', playingBear ? 'false' : 'true');
+    if (!playingBear) return;
+    const bear = this.chars.find((c) => c.role === 'bear');
+    if (!bear) return;
+    const hp = Math.max(0, Math.min(bear.hpMax ?? 3, bear.hp ?? 0));
+    heartsEl.textContent = '❤'.repeat(hp) + '♡'.repeat(Math.max(0, (bear.hpMax ?? 3) - hp));
   }
 
   update(dt) {
@@ -1315,6 +1342,7 @@ export class MultiCharacterGame {
       def.fp && ch.role === 'hunter' && this._isHunterPoopDebuffed(),
     );
     this._updateHud();
+    this._updateBearHpHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
 
@@ -1341,6 +1369,7 @@ export class MultiCharacterGame {
   /** 全画面切替後など、HUD だけ再描画 */
   refreshHud() {
     this._updateHud();
+    this._updateBearHpHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
   }
