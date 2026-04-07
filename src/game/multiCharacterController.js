@@ -113,6 +113,7 @@ const ROLE_HP = {
 const DEATH_DISSOLVE_MS = 1050;
 const DEATH_SMOKE_EMIT_INTERVAL_MS = 65;
 const DEATH_SMOKE_LIFE_MS = 720;
+const BEAR_TOUCH_ATTACK_COOLDOWN_MS = 700;
 
 const DEFS = {
   hunter: {
@@ -292,6 +293,9 @@ export class MultiCharacterGame {
     /** @type {{ mesh: THREE.Mesh, bornAt: number, lifeMs: number, drift: THREE.Vector3, startScale: number, endScale: number }[]} */
     this._deathSmoke = [];
     this._tmpDeathSmokeVec = new THREE.Vector3();
+    /** @type {{ mesh: THREE.Mesh, bornAt: number, lifeMs: number, vel: THREE.Vector3, spin: number }[]} */
+    this._bearAttackFx = [];
+    this._lastBearTouchAttackAt = -Infinity;
     /** 木以外の射線遮蔽物メッシュ（ハンター射撃用） */
     this._bulletBlockerMeshes = [];
     this._hunterHitBox = new THREE.Box3();
@@ -459,6 +463,72 @@ export class MultiCharacterGame {
       alive.push(p);
     }
     this._deathSmoke = alive;
+  }
+
+  _spawnBearAttackEffect(center) {
+    for (let i = 0; i < 9; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045 + Math.random() * 0.02, 7, 6),
+        new THREE.MeshBasicMaterial({
+          color: 0xff7a2f,
+          transparent: true,
+          opacity: 0.95,
+          depthWrite: false,
+        }),
+      );
+      const yaw = (i / 9) * Math.PI * 2 + Math.random() * 0.3;
+      const speed = 0.08 + Math.random() * 0.12;
+      mesh.position.copy(center);
+      mesh.position.y += 0.48 + Math.random() * 0.25;
+      const vel = new THREE.Vector3(Math.cos(yaw) * speed, 0.04 + Math.random() * 0.06, Math.sin(yaw) * speed);
+      this.scene.add(mesh);
+      this._bearAttackFx.push({
+        mesh,
+        bornAt: performance.now(),
+        lifeMs: 260 + Math.random() * 120,
+        vel,
+        spin: (Math.random() - 0.5) * 0.16,
+      });
+    }
+  }
+
+  _updateBearAttackFx(now = performance.now()) {
+    if (this._bearAttackFx.length === 0) return;
+    const alive = [];
+    for (const p of this._bearAttackFx) {
+      const t = (now - p.bornAt) / p.lifeMs;
+      if (t >= 1) {
+        this.scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        p.mesh.material.dispose();
+        continue;
+      }
+      p.mesh.position.add(p.vel);
+      p.mesh.rotation.y += p.spin;
+      const s = 1 + t * 1.2;
+      p.mesh.scale.setScalar(s);
+      p.mesh.material.opacity = (1 - t) * 0.95;
+      alive.push(p);
+    }
+    this._bearAttackFx = alive;
+  }
+
+  _tryBearTouchAttack(now = performance.now()) {
+    const hunter = this.chars.find((c) => c.role === 'hunter');
+    const bear = this.chars.find((c) => c.role === 'bear');
+    if (!hunter || !bear) return;
+    if ((hunter.hp ?? 1) <= 0 || (bear.hp ?? 1) <= 0) return;
+    if (now - this._lastBearTouchAttackAt < BEAR_TOUCH_ATTACK_COOLDOWN_MS) return;
+    const dx = hunter.feet.x - bear.feet.x;
+    const dz = hunter.feet.z - bear.feet.z;
+    const touchDist = (this._getCollisionRadius(hunter) + this._getCollisionRadius(bear)) * 0.95;
+    if (dx * dx + dz * dz > touchDist * touchDist) return;
+    hunter.hp = Math.max(0, (hunter.hp ?? 1) - 1);
+    this._lastBearTouchAttackAt = now;
+    this._triggerCharacterDamageFlash(hunter);
+    hunter.mesh.getWorldPosition(this._tmpDeathSmokeVec);
+    this._spawnBearAttackEffect(this._tmpDeathSmokeVec);
+    console.log(`[接触攻撃] クマ -> ハンター (${hunter.hp}/${hunter.hpMax})`);
   }
 
   _startCharacterDeath(ch, now = performance.now()) {
@@ -1520,10 +1590,12 @@ export class MultiCharacterGame {
     this._updateMonkeyJumpGauge();
 
     this._updateMonkeyRocks(dt);
+    this._tryBearTouchAttack();
     this._updateHunterPoopHitHighlight();
     this._updateDamageFlashEffects();
     this._updateCharacterDeaths();
     this._updateDeathSmoke();
+    this._updateBearAttackFx();
 
     this._prevSpaceHeld = this.keys.has('Space');
   }
