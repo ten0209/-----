@@ -184,7 +184,7 @@ export function syncFirstPersonGunToCamera(camera, gun, opts = {}) {
 
   if (aiming) {
     gun.position.copy(camera.position).addScaledVector(forward, 0.14).sub(aimWorldOffset);
-    gun.rotateX(-recoil * 0.52);
+    gun.rotateX(recoil * 0.3);
     gun.rotateY(recoil * 0.06);
   } else {
     gun.position
@@ -192,7 +192,7 @@ export function syncFirstPersonGunToCamera(camera, gun, opts = {}) {
       .addScaledVector(forward, 0.4)
       .addScaledVector(right, 0.72)
       .addScaledVector(up, -0.58);
-    gun.rotateX(0.038 + recoil * 0.5);
+    gun.rotateX(0.038 - recoil * 0.28);
     gun.rotateY(-0.04);
   }
 }

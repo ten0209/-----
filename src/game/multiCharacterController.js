@@ -34,7 +34,7 @@ const FP_ADS_MOVE_MUL = 0.32;
  */
 const HUNTER_MESH_YAW_OFFSET = Math.PI;
 /** 射撃時のカメラ反動（ラジアン）：上向き。毎フレーム exp 減衰でゆっくり戻る */
-const RECOIL_PITCH_MAX = 0.078;
+const RECOIL_PITCH_MAX = 0.042;
 /** 反動の減衰（大きいほど早く戻る） */
 const RECOIL_DECAY = 6.2;
 /** これ未満なら反動終了（視点・次射撃可）。尾が長いと「止まってるのに動けない」のでやや大きめ */
