@@ -117,7 +117,7 @@ const DEFS = {
   },
   bear: {
     fp: false,
-    speed: 3.2,
+    speed: 4.2,
     radius: 1.05,
     eyeHeight: 0,
     jumpForce: 4.2,
