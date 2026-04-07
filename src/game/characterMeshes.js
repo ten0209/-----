@@ -52,10 +52,14 @@ function addHunterRifleWorld(parent) {
   scope.castShadow = true;
   rifle.add(scope);
 
-  attachOutlineEdges(stock, 0xfff6f0, 40);
-  attachOutlineEdges(receiver, 0xfafcff, 34);
-  attachOutlineEdges(barrel, 0xa8b4c8, 22);
-  attachOutlineEdges(scope, 0xd8e6fc, 28);
+  const stockOutline = attachOutlineEdges(stock, 0xfff6f0, 40);
+  const receiverOutline = attachOutlineEdges(receiver, 0xfafcff, 34);
+  const barrelOutline = attachOutlineEdges(barrel, 0xa8b4c8, 22);
+  const scopeOutline = attachOutlineEdges(scope, 0xd8e6fc, 28);
+  stockOutline.userData.poopHighlightExclude = true;
+  receiverOutline.userData.poopHighlightExclude = true;
+  barrelOutline.userData.poopHighlightExclude = true;
+  scopeOutline.userData.poopHighlightExclude = true;
   parent.add(rifle);
 }
 
@@ -215,6 +219,7 @@ export function setHunterPoopHitHighlight(mesh, active) {
   if (!mesh) return;
   mesh.traverse((o) => {
     if (!o.isLineSegments || !o.material?.isLineBasicMaterial) return;
+    if (o.userData?.poopHighlightExclude) return;
     if (o.material.userData._poopOrigHex === undefined) {
       o.material.userData._poopOrigHex = o.material.color.getHex();
     }
@@ -231,10 +236,12 @@ export function createCharacterMesh(role) {
     body.position.y = 0.975;
     body.castShadow = true;
     g.add(body);
+    attachOutlineEdges(body, 0xdef1ff, 30);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), mat(0xd4a574));
     head.position.y = 1.35;
     head.castShadow = true;
     g.add(head);
+    attachOutlineEdges(head, 0xffefe0, 30);
     addHunterRifleWorld(g);
   } else if (role === 'bear') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.35, 2.4), mat(0x4a3320));
