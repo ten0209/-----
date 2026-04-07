@@ -79,23 +79,61 @@ body.scope-ads.scope-muddy #scope-mud {
 
 #crosshair {
   position: absolute;
-  z-index: 4;
+  z-index: 20;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  isolation: isolate;
+}
+
+#crosshair-dot {
+  position: absolute;
   left: 50%;
   top: 50%;
   width: 4px;
   height: 4px;
   margin: -2px 0 0 -2px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(220, 48, 48, 0.95);
+  box-shadow: 0 0 0 1px rgba(35, 0, 0, 0.2);
+  display: none;
+  z-index: -1;
+}
+
+#crosshair::before {
+  width: var(--scope-diameter-px, 44vmin);
+  height: 2px;
+}
+
+#crosshair::after {
+  width: 2px;
+  height: var(--scope-diameter-px, 44vmin);
 }
 
 .pointer-locked.mode-fp #crosshair,
 .pointer-locked.mode-monkey #crosshair {
   opacity: 1;
+}
+
+body.scope-ads #crosshair::before,
+body.scope-ads #crosshair::after {
+  display: block;
 }
 
 /* 射撃命中：照準中央に動物がいたときのフィードバック */

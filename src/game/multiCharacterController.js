@@ -240,6 +240,7 @@ export class MultiCharacterGame {
     this._boundWindowShootInput = this._onWindowShootInput.bind(this);
 
     this._scopeVignetteEl = document.getElementById('scope-vignette');
+    this._crosshairEl = document.getElementById('crosshair');
     this._hitFeedbackEl = document.getElementById('hit-feedback');
     this._vigWorldC = new THREE.Vector3();
     this._vigWorldR = new THREE.Vector3();
@@ -356,12 +357,14 @@ export class MultiCharacterGame {
   /** ADS 時：接眼ガラス円を投影し、スコープ外マスクの穴を枠に合わせる */
   _updateScopeVignette(ads) {
     const el = this._scopeVignetteEl;
+    const crosshairEl = this._crosshairEl;
     if (!el) return;
     if (!ads) {
       if (this._scopeVignetteLastBg !== '') {
         el.style.background = '';
         this._scopeVignetteLastBg = '';
       }
+      if (crosshairEl) crosshairEl.style.setProperty('--scope-diameter-px', '');
       return;
     }
     const mesh = this.fpGun.userData.fpScopeEyeGlassMesh;
@@ -391,11 +394,13 @@ export class MultiCharacterGame {
         el.style.background = fallbackBg;
         this._scopeVignetteLastBg = fallbackBg;
       }
+      if (crosshairEl) crosshairEl.style.setProperty('--scope-diameter-px', '');
       return;
     }
 
     /* わずかに広げてレンズ縁の内側まで黒がかからないようにする */
     rPx = Math.min(rPx * 1.04, Math.min(w, h) * 0.49);
+    if (crosshairEl) crosshairEl.style.setProperty('--scope-diameter-px', `${rPx * 2}px`);
 
     const cx = ncx * hw + hw;
     const cy = -ncy * hh + hh;
@@ -1171,7 +1176,7 @@ export class MultiCharacterGame {
       const gunMul = ads ? FP_GUN_ADS_SCALE_MUL : 1;
       this.fpGun.scale.setScalar(FP_GUN_SCALE_BASE * gunMul);
       this.spotLight.intensity = 4.2;
-      this.fpGun.visible = true;
+      this.fpGun.visible = !ads;
       syncFirstPersonGunToCamera(this.camera, this.fpGun, {
         aiming: this._aiming,
         recoil: Math.min(1, this._recoilPitch / RECOIL_PITCH_MAX),
