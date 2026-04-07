@@ -110,6 +110,9 @@ const ROLE_HP = {
   deer: 1,
   monkey: 1,
 };
+const DEATH_DISSOLVE_MS = 1050;
+const DEATH_SMOKE_EMIT_INTERVAL_MS = 65;
+const DEATH_SMOKE_LIFE_MS = 720;
 
 const DEFS = {
   hunter: {
@@ -286,6 +289,9 @@ export class MultiCharacterGame {
     this._lastMonkeyRockSpawn = -Infinity;
     /** @type {{ mesh: THREE.Mesh, vel: THREE.Vector3 }[]} */
     this._monkeyRocks = [];
+    /** @type {{ mesh: THREE.Mesh, bornAt: number, lifeMs: number, drift: THREE.Vector3, startScale: number, endScale: number }[]} */
+    this._deathSmoke = [];
+    this._tmpDeathSmokeVec = new THREE.Vector3();
     /** 木以外の射線遮蔽物メッシュ（ハンター射撃用） */
     this._bulletBlockerMeshes = [];
     this._hunterHitBox = new THREE.Box3();
@@ -381,6 +387,112 @@ export class MultiCharacterGame {
       if (active === !!c._damageFlashActive) continue;
       c._damageFlashActive = active;
       this._setCharacterDamageFlash(c, active);
+    }
+  }
+
+  _setCharacterMeshOpacity(ch, alpha) {
+    if (!ch?.mesh) return;
+    ch.mesh.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (m.userData._deathOrigTransparent === undefined) {
+          m.userData._deathOrigTransparent = !!m.transparent;
+          m.userData._deathOrigOpacity = m.opacity ?? 1;
+        }
+        m.transparent = true;
+        m.opacity = Math.max(0, Math.min(1, alpha));
+        m.depthWrite = alpha >= 0.98;
+      }
+    });
+  }
+
+  _spawnDeathSmoke(center, count = 2) {
+    for (let i = 0; i < count; i++) {
+      const size = 0.09 + Math.random() * 0.08;
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 8, 6),
+        new THREE.MeshBasicMaterial({
+          color: 0x4a4a4a,
+          transparent: true,
+          opacity: 0.62,
+          depthWrite: false,
+        }),
+      );
+      mesh.position.copy(center);
+      mesh.position.x += (Math.random() - 0.5) * 0.25;
+      mesh.position.y += 0.15 + Math.random() * 0.35;
+      mesh.position.z += (Math.random() - 0.5) * 0.25;
+      const drift = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.18,
+        0.22 + Math.random() * 0.22,
+        (Math.random() - 0.5) * 0.18,
+      );
+      const lifeMs = DEATH_SMOKE_LIFE_MS + Math.random() * 200;
+      this.scene.add(mesh);
+      this._deathSmoke.push({
+        mesh,
+        bornAt: performance.now(),
+        lifeMs,
+        drift,
+        startScale: 0.55 + Math.random() * 0.2,
+        endScale: 1.9 + Math.random() * 0.5,
+      });
+    }
+  }
+
+  _updateDeathSmoke(now = performance.now()) {
+    if (this._deathSmoke.length === 0) return;
+    const alive = [];
+    for (const p of this._deathSmoke) {
+      const t = (now - p.bornAt) / p.lifeMs;
+      if (t >= 1) {
+        this.scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        p.mesh.material.dispose();
+        continue;
+      }
+      p.mesh.position.addScaledVector(p.drift, 1 / 60);
+      const s = THREE.MathUtils.lerp(p.startScale, p.endScale, t);
+      p.mesh.scale.setScalar(s);
+      p.mesh.material.opacity = (1 - t) * 0.62;
+      alive.push(p);
+    }
+    this._deathSmoke = alive;
+  }
+
+  _startCharacterDeath(ch, now = performance.now()) {
+    if (!ch || ch.deathStartedAt !== undefined) return;
+    ch.deathStartedAt = now;
+    ch.deathEnded = false;
+    ch.deathSmokeNextAt = now;
+    ch.damageFlashUntil = now;
+    ch._damageFlashActive = false;
+    ch.deathBaseRotX = ch.mesh.rotation.x;
+    ch.deathBaseRotY = ch.mesh.rotation.y;
+    ch.deathBaseRotZ = ch.mesh.rotation.z;
+  }
+
+  _updateCharacterDeaths(now = performance.now()) {
+    for (const c of this.chars) {
+      if ((c.hp ?? 1) <= 0 && c.deathStartedAt === undefined) {
+        this._startCharacterDeath(c, now);
+      }
+      if (c.deathStartedAt === undefined || c.deathEnded) continue;
+      const t = Math.max(0, Math.min(1, (now - c.deathStartedAt) / DEATH_DISSOLVE_MS));
+      c.mesh.rotation.x = THREE.MathUtils.lerp(c.deathBaseRotX ?? 0, (c.deathBaseRotX ?? 0) + Math.PI * 0.5, t);
+      c.mesh.rotation.y = c.deathBaseRotY ?? c.mesh.rotation.y;
+      c.mesh.rotation.z = c.deathBaseRotZ ?? c.mesh.rotation.z;
+      this._setCharacterMeshOpacity(c, 1 - t);
+      if (now >= (c.deathSmokeNextAt ?? 0)) {
+        c.mesh.getWorldPosition(this._tmpDeathSmokeVec);
+        this._spawnDeathSmoke(this._tmpDeathSmokeVec, 2);
+        c.deathSmokeNextAt = now + DEATH_SMOKE_EMIT_INTERVAL_MS;
+      }
+      if (t >= 1) {
+        c.mesh.visible = false;
+        c.deathEnded = true;
+      }
     }
   }
 
@@ -495,6 +607,9 @@ export class MultiCharacterGame {
       hp: ROLE_HP[role] ?? 1,
       damageFlashUntil: 0,
       _damageFlashActive: false,
+      deathStartedAt: undefined,
+      deathSmokeNextAt: 0,
+      deathEnded: false,
     };
     if (role === 'bear') {
       ch.bearDashFuel = BEAR_DASH_MAX_DURATION;
@@ -1011,7 +1126,13 @@ export class MultiCharacterGame {
       this._syncCameraMode();
     }
 
-    const ch = this.chars[this.activeIndex];
+    let ch = this.chars[this.activeIndex];
+    if ((ch.hp ?? 1) <= 0 && this.chars[0] && (this.chars[0].hp ?? 1) > 0) {
+      this.activeIndex = 0;
+      ch = this.chars[this.activeIndex];
+      this._aiming = false;
+      this._syncCameraMode();
+    }
     const def = ch.def;
     const feet = ch.feet;
     if (!(ch.role === 'monkey' && (this._aiming || !!ch.climbing)) && !def.fp) {
@@ -1254,7 +1375,9 @@ export class MultiCharacterGame {
       );
     }
 
-    ch.mesh.position.set(feet.x, feet.y + (def.meshYOffset ?? 0), feet.z);
+    if (ch.deathStartedAt === undefined || ch.deathEnded) {
+      ch.mesh.position.set(feet.x, feet.y + (def.meshYOffset ?? 0), feet.z);
+    }
     if (def.fp) {
       ch.mesh.rotation.y = this.euler.y + HUNTER_MESH_YAW_OFFSET;
     } else if (ch.climbing) {
@@ -1399,6 +1522,8 @@ export class MultiCharacterGame {
     this._updateMonkeyRocks(dt);
     this._updateHunterPoopHitHighlight();
     this._updateDamageFlashEffects();
+    this._updateCharacterDeaths();
+    this._updateDeathSmoke();
 
     this._prevSpaceHeld = this.keys.has('Space');
   }
