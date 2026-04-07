@@ -42,6 +42,8 @@ const RECOIL_DONE_EPS = 0.0022;
 const PITCH_LIMIT = Math.PI / 2 - 0.08;
 const TP_PITCH_MIN = 0.12;
 const TP_PITCH_MAX = 1.05;
+const MONKEY_THROW_PITCH_MIN = -0.58;
+const MONKEY_THROW_PITCH_MAX = 1.46;
 /** クマ：Space ダッシュの水平速度 */
 const BEAR_DASH_SPEED = 12;
 /** 燃料の最大値（秒）。この長さだけ連続ダッシュ可能 */
@@ -73,9 +75,9 @@ const MONKEY_TREE_SNAP_COOLDOWN_MS = 1800;
  */
 const MONKEY_THROW_BEHIND_DIST = 0.52;
 /** 体の右方向ベクトルに対する横移動（m）。負の値でカメラが体の左に寄り、画面では体が左側に映る */
-const MONKEY_THROW_RIGHT_SHIFT = -0.38;
+const MONKEY_THROW_RIGHT_SHIFT = 0.65;
 /** 構え時カメラの高さ上乗せ（m） */
-const MONKEY_THROW_Y_BOOST = 0.12;
+const MONKEY_THROW_Y_BOOST = 0.26;
 /** 視線を進行方向へ寄せる（m、ブレンドに比例） */
 const MONKEY_THROW_LOOK_AHEAD = 1.45;
 const MONKEY_THROW_CAM_BLEND_SMOOTH = 9;
@@ -110,6 +112,7 @@ const DEFS = {
     camDist: 0,
     camHeight: 0,
     aimHeight: 1.65,
+    meshYOffset: -0.27,
     label: 'ハンター',
   },
   bear: {
@@ -121,6 +124,7 @@ const DEFS = {
     camDist: 7.8,
     camHeight: 3.1,
     aimHeight: 1.35,
+    meshYOffset: -0.175,
     label: 'クマ',
   },
   deer: {
@@ -132,6 +136,7 @@ const DEFS = {
     camDist: 5.9,
     camHeight: 2.35,
     aimHeight: 1.05,
+    meshYOffset: -0.475,
     label: 'シカ',
   },
   monkey: {
@@ -144,6 +149,7 @@ const DEFS = {
     camHeight: 1.55,
     aimHeight: 0.52,
     climbSpeed: 7.4,
+    meshYOffset: -0.345,
     label: 'サル',
   },
 };
@@ -704,8 +710,11 @@ export class MultiCharacterGame {
     } else {
       this.tpYaw -= e.movementX * this.lookSensitivity;
       this.tpPitch -= e.movementY * this.lookSensitivity;
-      this.tpPitch = Math.max(TP_PITCH_MIN, Math.min(TP_PITCH_MAX, this.tpPitch));
-      this._clampTpPitchToGround(ch);
+      const monkeyWidePitch = ch.role === 'monkey' && (this._aiming || !!ch.climbing);
+      const pitchMin = monkeyWidePitch ? MONKEY_THROW_PITCH_MIN : TP_PITCH_MIN;
+      const pitchMax = monkeyWidePitch ? MONKEY_THROW_PITCH_MAX : TP_PITCH_MAX;
+      this.tpPitch = Math.max(pitchMin, Math.min(pitchMax, this.tpPitch));
+      if (!monkeyWidePitch) this._clampTpPitchToGround(ch);
     }
   }
 
@@ -908,7 +917,9 @@ export class MultiCharacterGame {
     const ch = this.chars[this.activeIndex];
     const def = ch.def;
     const feet = ch.feet;
-    if (!def.fp) this._clampTpPitchToGround(ch);
+    if (!(ch.role === 'monkey' && (this._aiming || !!ch.climbing)) && !def.fp) {
+      this._clampTpPitchToGround(ch);
+    }
 
     if (this._recoilPitch > RECOIL_DONE_EPS) {
       this._recoilPitch *= Math.exp(-dt * RECOIL_DECAY);
@@ -1146,7 +1157,7 @@ export class MultiCharacterGame {
       );
     }
 
-    ch.mesh.position.set(feet.x, feet.y, feet.z);
+    ch.mesh.position.set(feet.x, feet.y + (def.meshYOffset ?? 0), feet.z);
     if (def.fp) {
       ch.mesh.rotation.y = this.euler.y + HUNTER_MESH_YAW_OFFSET;
     } else if (ch.climbing) {
@@ -1213,7 +1224,7 @@ export class MultiCharacterGame {
         this._vThrowForward.y = 0;
         if (this._vThrowForward.lengthSq() > 1e-6) this._vThrowForward.normalize();
         else this._vThrowForward.set(0, 0, 1);
-        this._vThrowCamSide.crossVectors(new THREE.Vector3(0, 1, 0), this._vThrowForward).normalize();
+        this._vThrowCamSide.crossVectors(this._vThrowForward, new THREE.Vector3(0, 1, 0)).normalize();
         this._vThrowBehindPos
           .copy(target)
           .addScaledVector(this._vThrowForward, -MONKEY_THROW_BEHIND_DIST)
