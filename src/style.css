@@ -250,6 +250,34 @@ body.scope-ads #crosshair::after {
   color: #ff5a66;
 }
 
+.veg-counter {
+  position: absolute;
+  z-index: 4;
+  right: 12px;
+  top: 72px; /* クマHPの下に固定して重なりを防ぐ */
+  min-width: 120px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 12, 20, 0.58);
+  color: rgba(240, 255, 220, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.veg-counter__label {
+  margin-right: 8px;
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.veg-counter__value {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #b7ea71;
+}
+
 #lock-hint {
   position: absolute;
   z-index: 3;

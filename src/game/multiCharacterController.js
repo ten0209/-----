@@ -277,6 +277,7 @@ export class MultiCharacterGame {
     this._deerHarvestGaugeFillEl = this._deerHarvestGaugeEl?.querySelector('.deer-harvest-gauge__fill');
     this._bearHpEl = document.getElementById('bear-hp');
     this._bearHpHeartsEl = document.getElementById('bear-hp-hearts');
+    this._vegCounterValueEl = document.getElementById('veg-counter-value');
     /** 直前フレームで Space が押されていたか（離した瞬間検出用） */
     this._prevSpaceHeld = false;
     /** キャンバス左クリック 1 回分（登木開始用、update で消費） */
@@ -1240,6 +1241,11 @@ export class MultiCharacterGame {
     heartsEl.textContent = '❤'.repeat(hp) + '♡'.repeat(Math.max(0, (bear.hpMax ?? 3) - hp));
   }
 
+  _updateVegetableCounterHud() {
+    if (!this._vegCounterValueEl) return;
+    this._vegCounterValueEl.textContent = String(this._deerVegCount);
+  }
+
   _teamOfRole(role) {
     return role === 'hunter' ? 'hunter' : 'animals';
   }
@@ -1710,6 +1716,7 @@ export class MultiCharacterGame {
     );
     this._updateHud();
     this._updateBearHpHud();
+    this._updateVegetableCounterHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
     this._updateDeerHarvestGauge();
@@ -1749,6 +1756,7 @@ export class MultiCharacterGame {
   refreshHud() {
     this._updateHud();
     this._updateBearHpHud();
+    this._updateVegetableCounterHud();
     this._updateBearDashGauge();
     this._updateMonkeyJumpGauge();
     this._updateDeerHarvestGauge();
