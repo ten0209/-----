@@ -61,11 +61,14 @@ function createTree(rng) {
   }
 
   g.rotation.y = rng() * Math.PI * 2;
-  return g;
+  const trunkR = 0.2 * scale * 1.1;
+  const topY = (1.6 + (layers - 1) * 1.15) * scale + (2.2 * scale) * 0.5;
+  return { group: g, trunkR, topY };
 }
 
 function createRock(rng) {
-  const geo = new THREE.DodecahedronGeometry(0.35 + rng() * 0.55, 0);
+  const baseR = 0.35 + rng() * 0.55;
+  const geo = new THREE.DodecahedronGeometry(baseR, 0);
   const mat = new THREE.MeshStandardMaterial({
     color: new THREE.Color().setHSL(0, 0, 0.38 + rng() * 0.12),
     roughness: 0.92,
@@ -77,7 +80,7 @@ function createRock(rng) {
   const s = 0.75 + rng() * 0.95;
   m.scale.setScalar(s);
   m.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-  return { mesh: m, colliderR: 0.38 + s * 0.22 };
+  return { mesh: m, colliderR: baseR * s * 0.92 };
 }
 
 function createStump(rng) {
@@ -257,15 +260,13 @@ export function buildForestStage(scene, seed = 1) {
     const p = placeInRingAvoid(rng, clearSq, 10, buildingClearances);
     if (!p) continue;
     const { x, z } = p;
-    const tree = createTree(rng);
+    const { group: tree, trunkR, topY } = createTree(rng);
     /** 射線判定では木だけ貫通させる */
     tree.userData.bulletPassThrough = true;
     tree.position.set(x, 0, z);
     scene.add(tree);
-    const trunkR = 0.32 + rng() * 0.18;
-    const trunkTopY = 5.5 + rng() * 3.5;
-    colliders.push({ x, z, r: trunkR, h: trunkTopY });
-    treeTrunks.push({ x, z, r: trunkR, topY: trunkTopY });
+    colliders.push({ x, z, r: trunkR, h: topY });
+    treeTrunks.push({ x, z, r: trunkR, topY });
   }
 
   for (let i = 0; i < ROCK_COUNT; i++) {
@@ -297,12 +298,15 @@ export function buildForestStage(scene, seed = 1) {
     log.receiveShadow = true;
     scene.add(log);
 
-    const seg = len * 0.38;
-    const hx = Math.cos(theta) * seg;
-    const hz = Math.sin(theta) * seg;
-    const cr = 0.36 + rng() * 0.06;
-    colliders.push({ x: x + hx, z: z + hz, r: cr, h: 0.44 });
-    colliders.push({ x: x - hx, z: z - hz, r: cr, h: 0.44 });
+    colliders.push({
+      kind: 'box',
+      cx: x,
+      cz: z,
+      halfW: len * 0.5 + 0.08,
+      halfD: 0.34,
+      rot: theta,
+      h: 0.52,
+    });
   }
 
   for (let i = 0; i < STUMP_COUNT; i++) {

@@ -98,10 +98,10 @@ const DEER_JUMP_GRAVITY_MUL = 1.35;
 /** うんちがハンターに当たったときの稜線ハイライト時間（ms） */
 const HUNTER_POOP_HIT_HIGHLIGHT_MS = 3000;
 /** サルの実移動当たり判定（見た目優先でかなり小さく固定） */
-const MONKEY_COLLISION_RADIUS_FIXED = 0.1;
+const MONKEY_COLLISION_RADIUS_FIXED = 0.22;
 /** サルの下半身カプセル（feet 基準） */
-const MONKEY_COLLIDER_BOTTOM_OFFSET = 0.02;
-const MONKEY_COLLIDER_TOP_OFFSET = 0.42;
+const MONKEY_COLLIDER_BOTTOM_OFFSET = 0.0;
+const MONKEY_COLLIDER_TOP_OFFSET = 1.05;
 
 const DEFS = {
   hunter: {
@@ -762,6 +762,25 @@ export class MultiCharacterGame {
     resolveCollisionsCapsuleXZ(feet, r, y0, y1, this.colliders);
   }
 
+  /** 高速移動時のトンネル抜け防止：移動を小分けにして毎ステップ衝突を解く */
+  _moveCharacterWithCollisions(ch, feet, dx, dz) {
+    const dist = Math.hypot(dx, dz);
+    if (dist <= 1e-8) return;
+    const r = this._getCollisionRadius(ch);
+    const stepLen = Math.max(0.12, r * 0.55);
+    const steps = Math.max(1, Math.ceil(dist / stepLen));
+    const sx = dx / steps;
+    const sz = dz / steps;
+    for (let i = 0; i < steps; i++) {
+      feet.x += sx;
+      feet.z += sz;
+      this._resolveCharacterCollisions(ch, feet);
+      const h = this.halfBounds;
+      feet.x = Math.max(-h, Math.min(h, feet.x));
+      feet.z = Math.max(-h, Math.min(h, feet.z));
+    }
+  }
+
   /**
    * 登木可能距離内で最も近い幹
    * @param {{ x: number, z: number }} feet
@@ -1034,8 +1053,12 @@ export class MultiCharacterGame {
           if (!this.keys.has('Space') || ch.bearDashFuel <= BEAR_DASH_MIN_FUEL) {
             ch.bearDashActive = false;
           } else {
-            feet.x += ch.bearDashDir.x * BEAR_DASH_SPEED * dt;
-            feet.z += ch.bearDashDir.z * BEAR_DASH_SPEED * dt;
+            this._moveCharacterWithCollisions(
+              ch,
+              feet,
+              ch.bearDashDir.x * BEAR_DASH_SPEED * dt,
+              ch.bearDashDir.z * BEAR_DASH_SPEED * dt,
+            );
             ch.bearDashFuel -= dt;
             if (ch.bearDashFuel < 0) ch.bearDashFuel = 0;
             if (ch.bearDashFuel <= BEAR_DASH_MIN_FUEL) ch.bearDashActive = false;
@@ -1050,8 +1073,7 @@ export class MultiCharacterGame {
           moveMul *= MONKEY_THROW_MOVE_MUL;
         }
         move.normalize().multiplyScalar(def.speed * moveMul * dt);
-        feet.x += move.x;
-        feet.z += move.z;
+        this._moveCharacterWithCollisions(ch, feet, move.x, move.z);
         if (!(ch.role === 'monkey' && this._aiming && !ch.climbing)) {
           ch.yaw = Math.atan2(move.x, move.z);
         }
@@ -1135,12 +1157,8 @@ export class MultiCharacterGame {
             ch.monkeyAirDrive.set(0, 0, 0);
           } else if (ch.monkeyAirDrive.lengthSq() > 1e-8) {
             const v = ch.monkeyAirDrive;
-            feet.x += v.x * dt;
-            feet.z += v.z * dt;
+            this._moveCharacterWithCollisions(ch, feet, v.x * dt, v.z * dt);
             v.multiplyScalar(Math.exp(-dt * MONKEY_JUMP_AIR_DRAG));
-            feet.x = Math.max(-h, Math.min(h, feet.x));
-            feet.z = Math.max(-h, Math.min(h, feet.z));
-            this._resolveCharacterCollisions(ch, feet);
           }
           this._trySnapMonkeyToTreeFromAir(ch, feet, def);
         }
