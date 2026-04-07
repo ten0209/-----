@@ -5,7 +5,10 @@ import {
   createHunterFirstPersonGun,
   setFpGunBodyHiddenForAiming,
   setHunterPoopHitHighlight,
+  syncBearLegSwing,
+  syncDeerLegSwing,
   syncFirstPersonGunToCamera,
+  syncMonkeyLegSwing,
   syncMonkeyRightArmRaise,
 } from './characterMeshes.js';
 import { playGunshot } from './gunSfx.js';
@@ -77,7 +80,7 @@ const MONKEY_THROW_BEHIND_DIST = 0.52;
 /** 体の右方向ベクトルに対する横移動（m）。負の値でカメラが体の左に寄り、画面では体が左側に映る */
 const MONKEY_THROW_RIGHT_SHIFT = 0.65;
 /** 構え時カメラの高さ上乗せ（m） */
-const MONKEY_THROW_Y_BOOST = 0.26;
+const MONKEY_THROW_Y_BOOST = 0.4;
 /** 視線を進行方向へ寄せる（m、ブレンドに比例） */
 const MONKEY_THROW_LOOK_AHEAD = 1.45;
 const MONKEY_THROW_CAM_BLEND_SMOOTH = 9;
@@ -140,7 +143,7 @@ const DEFS = {
     camDist: 7.8,
     camHeight: 3.1,
     aimHeight: 1.35,
-    meshYOffset: -0.175,
+    meshYOffset: 0.08,
     label: 'クマ',
   },
   deer: {
@@ -152,7 +155,7 @@ const DEFS = {
     camDist: 5.9,
     camHeight: 2.35,
     aimHeight: 1.05,
-    meshYOffset: -0.475,
+    meshYOffset: -0.06,
     label: 'シカ',
   },
   monkey: {
@@ -165,7 +168,7 @@ const DEFS = {
     camHeight: 1.55,
     aimHeight: 0.52,
     climbSpeed: 7.4,
-    meshYOffset: -0.345,
+    meshYOffset: -0.14,
     label: 'サル',
   },
 };
@@ -897,8 +900,14 @@ export class MultiCharacterGame {
 
     this._raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
     const dir = this._raycaster.ray.direction.clone().normalize();
-    const start = new THREE.Vector3(ch.feet.x, ch.feet.y + 0.42, ch.feet.z);
-    start.addScaledVector(dir, 0.28);
+    let start = new THREE.Vector3(ch.feet.x, ch.feet.y + 0.42, ch.feet.z);
+    const armPivot = ch.mesh?.userData?.monkeyRightArmPivot;
+    if (armPivot) {
+      armPivot.updateMatrixWorld(true);
+      /* 腕メッシュ（長さ0.44）の先端付近を発射起点にする */
+      start = new THREE.Vector3(0, -0.44, 0.02).applyMatrix4(armPivot.matrixWorld);
+    }
+    start.addScaledVector(dir, 0.12);
     const vel = dir.multiplyScalar(MONKEY_ROCK_SPEED);
 
     while (this._monkeyRocks.length >= MONKEY_ROCK_MAX) {
@@ -1577,6 +1586,26 @@ export class MultiCharacterGame {
 
     if (ch.deathStartedAt === undefined || ch.deathEnded) {
       ch.mesh.position.set(feet.x, feet.y + (def.meshYOffset ?? 0), feet.z);
+    }
+    const onGroundForLegAnim = feet.y <= 0.03 && Math.abs(ch.velY) <= 0.08;
+    const movingByInput =
+      this.keys.has('KeyW') ||
+      this.keys.has('KeyA') ||
+      this.keys.has('KeyS') ||
+      this.keys.has('KeyD') ||
+      this.keys.has('ArrowUp') ||
+      this.keys.has('ArrowDown') ||
+      this.keys.has('ArrowLeft') ||
+      this.keys.has('ArrowRight');
+    if (ch.role === 'bear') {
+      const moving = onGroundForLegAnim && (movingByInput || ch.bearDashActive);
+      syncBearLegSwing(ch.mesh, moving, dt);
+    } else if (ch.role === 'deer') {
+      const moving = onGroundForLegAnim && movingByInput;
+      syncDeerLegSwing(ch.mesh, moving, dt);
+    } else if (ch.role === 'monkey') {
+      const moving = onGroundForLegAnim && movingByInput && !ch.climbing;
+      syncMonkeyLegSwing(ch.mesh, moving, dt);
     }
     if (def.fp) {
       ch.mesh.rotation.y = this.euler.y + HUNTER_MESH_YAW_OFFSET;

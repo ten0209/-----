@@ -203,6 +203,12 @@ export function syncFirstPersonGunToCamera(camera, gun, opts = {}) {
 
 const MONKEY_RIGHT_ARM_RAISE_RY = -0.62;
 const MONKEY_RIGHT_ARM_RAISE_RX = (-120 * Math.PI) / 180;
+const BEAR_LEG_SWING_MAX = 0.42;
+const BEAR_LEG_SWING_SPEED = 11.5;
+const DEER_LEG_SWING_MAX = 0.5;
+const DEER_LEG_SWING_SPEED = 12.5;
+const MONKEY_LEG_SWING_MAX = 0.48;
+const MONKEY_LEG_SWING_SPEED = 13.2;
 
 export function syncMonkeyRightArmRaise(mesh, raised, dt) {
   const pivot = mesh?.userData?.monkeyRightArmPivot;
@@ -213,6 +219,58 @@ export function syncMonkeyRightArmRaise(mesh, raised, dt) {
   const ty = raised ? MONKEY_RIGHT_ARM_RAISE_RY : 0;
   pivot.rotation.x = THREE.MathUtils.lerp(pivot.rotation.x, tx, k);
   pivot.rotation.y = THREE.MathUtils.lerp(pivot.rotation.y, ty, k);
+}
+
+export function syncBearLegSwing(mesh, moving, dt) {
+  const pivots = mesh?.userData?.bearLegPivots;
+  if (!pivots || pivots.length === 0) return;
+  const state = mesh.userData;
+  state.bearLegWalkPhase = (state.bearLegWalkPhase ?? 0) + dt * BEAR_LEG_SWING_SPEED;
+  const phase = state.bearLegWalkPhase;
+  const amp = moving ? BEAR_LEG_SWING_MAX : 0;
+  const targetA = Math.sin(phase) * amp;
+  const targetB = Math.sin(phase + Math.PI) * amp;
+  const smooth = moving ? 18 : 22;
+  const k = 1 - Math.exp(-smooth * Math.min(dt, 0.05));
+  /* [frontL, frontR, rearL, rearR] */
+  pivots[0].rotation.x = THREE.MathUtils.lerp(pivots[0].rotation.x, targetA, k);
+  pivots[1].rotation.x = THREE.MathUtils.lerp(pivots[1].rotation.x, targetB, k);
+  pivots[2].rotation.x = THREE.MathUtils.lerp(pivots[2].rotation.x, targetB, k);
+  pivots[3].rotation.x = THREE.MathUtils.lerp(pivots[3].rotation.x, targetA, k);
+}
+
+export function syncDeerLegSwing(mesh, moving, dt) {
+  const pivots = mesh?.userData?.deerLegPivots;
+  if (!pivots || pivots.length === 0) return;
+  const state = mesh.userData;
+  state.deerLegWalkPhase = (state.deerLegWalkPhase ?? 0) + dt * DEER_LEG_SWING_SPEED;
+  const phase = state.deerLegWalkPhase;
+  const amp = moving ? DEER_LEG_SWING_MAX : 0;
+  const targetA = Math.sin(phase) * amp;
+  const targetB = Math.sin(phase + Math.PI) * amp;
+  const smooth = moving ? 20 : 24;
+  const k = 1 - Math.exp(-smooth * Math.min(dt, 0.05));
+  /* [frontL, frontR, rearL, rearR] */
+  pivots[0].rotation.x = THREE.MathUtils.lerp(pivots[0].rotation.x, targetA, k);
+  pivots[1].rotation.x = THREE.MathUtils.lerp(pivots[1].rotation.x, targetB, k);
+  pivots[2].rotation.x = THREE.MathUtils.lerp(pivots[2].rotation.x, targetB, k);
+  pivots[3].rotation.x = THREE.MathUtils.lerp(pivots[3].rotation.x, targetA, k);
+}
+
+export function syncMonkeyLegSwing(mesh, moving, dt) {
+  const pivots = mesh?.userData?.monkeyLegPivots;
+  if (!pivots || pivots.length === 0) return;
+  const state = mesh.userData;
+  state.monkeyLegWalkPhase = (state.monkeyLegWalkPhase ?? 0) + dt * MONKEY_LEG_SWING_SPEED;
+  const phase = state.monkeyLegWalkPhase;
+  const amp = moving ? MONKEY_LEG_SWING_MAX : 0;
+  const targetA = Math.sin(phase) * amp;
+  const targetB = Math.sin(phase + Math.PI) * amp;
+  const smooth = moving ? 20 : 24;
+  const k = 1 - Math.exp(-smooth * Math.min(dt, 0.05));
+  /* [left, right] */
+  pivots[0].rotation.x = THREE.MathUtils.lerp(pivots[0].rotation.x, targetA, k);
+  pivots[1].rotation.x = THREE.MathUtils.lerp(pivots[1].rotation.x, targetB, k);
 }
 
 export function setHunterPoopHitHighlight(mesh, active) {
@@ -244,15 +302,82 @@ export function createCharacterMesh(role) {
     attachOutlineEdges(head, 0xffefe0, 30);
     addHunterRifleWorld(g);
   } else if (role === 'bear') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.35, 2.4), mat(0x4a3320));
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.35, 2.4), mat(0x614127));
     body.position.y = 0.85;
     body.castShadow = true;
     g.add(body);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.64, 0.62), mat(0x6a482b));
+    head.position.set(0, 1.4, 1.52);
+    head.castShadow = true;
+    g.add(head);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.1), mat(0x9a7652));
+    nose.position.set(0, 1.3, 1.85);
+    nose.castShadow = true;
+    g.add(nose);
+    const eyeMat = mat(0x161616, 0.55);
+    const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.05), eyeMat);
+    eyeL.position.set(-0.2, 1.5, 1.91);
+    eyeL.castShadow = true;
+    g.add(eyeL);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.2;
+    g.add(eyeR);
+    const earMat = mat(0x6a482b);
+    const earL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.12), earMat);
+    earL.position.set(-0.24, 1.72, 1.72);
+    earL.castShadow = true;
+    g.add(earL);
+    const earR = earL.clone();
+    earR.position.x = 0.24;
+    g.add(earR);
+    const legMat = mat(0x5b3f29);
+    const legYs = 0.55;
+    const makeLeg = (x, z) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, legYs, z);
+      g.add(pivot);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.52, 0.22), legMat);
+      leg.position.y = -0.26;
+      leg.castShadow = true;
+      pivot.add(leg);
+      return pivot;
+    };
+    const frontL = makeLeg(-0.5, 0.85);
+    const frontR = makeLeg(0.5, 0.85);
+    const rearL = makeLeg(-0.5, -0.85);
+    const rearR = makeLeg(0.5, -0.85);
+    g.userData.bearLegPivots = [frontL, frontR, rearL, rearR];
+    g.userData.bearLegWalkPhase = 0;
   } else if (role === 'deer') {
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.75, 1.1), mat(0x8b5a3c));
     torso.position.y = 0.85;
     torso.castShadow = true;
     g.add(torso);
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.78, 0.22), mat(0x8b5a3c));
+    neck.position.set(0, 1.26, 0.46);
+    neck.castShadow = true;
+    g.add(neck);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.38), mat(0x946344));
+    head.position.set(0, 1.58, 0.72);
+    head.castShadow = true;
+    g.add(head);
+    const legMat = mat(0x7a5035);
+    const makeLeg = (x, z) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, 0.62, z);
+      g.add(pivot);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.62, 0.13), legMat);
+      leg.position.y = -0.31;
+      leg.castShadow = true;
+      pivot.add(leg);
+      return pivot;
+    };
+    const frontL = makeLeg(-0.2, 0.34);
+    const frontR = makeLeg(0.2, 0.34);
+    const rearL = makeLeg(-0.2, -0.34);
+    const rearR = makeLeg(0.2, -0.34);
+    g.userData.deerLegPivots = [frontL, frontR, rearL, rearR];
+    g.userData.deerLegWalkPhase = 0;
   } else if (role === 'monkey') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.75, 0.38), mat(0x5a5652));
     body.position.y = 0.72;
@@ -269,6 +394,25 @@ export function createCharacterMesh(role) {
     arm.position.set(0, -0.22, 0);
     arm.castShadow = true;
     shoulder.add(arm);
+    const otherArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.44, 0.14), mat(0x47413d));
+    otherArm.position.set(0.2, 0.72, 0.02);
+    otherArm.castShadow = true;
+    g.add(otherArm);
+    const legMat = mat(0x47413d);
+    const makeLeg = (x) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, 0.46, 0.02);
+      g.add(pivot);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.12), legMat);
+      leg.position.y = -0.17;
+      leg.castShadow = true;
+      pivot.add(leg);
+      return pivot;
+    };
+    const legL = makeLeg(-0.12);
+    const legR = makeLeg(0.12);
+    g.userData.monkeyLegPivots = [legL, legR];
+    g.userData.monkeyLegWalkPhase = 0;
     g.userData.monkeyRightArmPivot = shoulder;
   }
   return g;
